@@ -12,13 +12,12 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
-public class DealsResourceApiImpl implements DealsResource {
+public class DealsResourceMockImpl implements DealsResource {
 
 
     @Override
-    public Mono<RestaurauntDealsResponseDto> getDealsData() {
-        // Implement the logic to retrieve deals data from an external source or database
-        // For demonstration, return a static response
+    public Mono<RestaurauntDealsResponseDto> getAllDeals() {
+        // TODO: replace with call to API (eventually, database)
 
         RestaurauntDealsResponseDto dealsData = readStaticFile(); // Replace with actual data retrieval logic
         return Mono.just(dealsData);

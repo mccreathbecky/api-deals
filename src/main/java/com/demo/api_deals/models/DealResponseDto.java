@@ -14,7 +14,7 @@ public class DealResponseDto {
     private String discount;
     private String dineIn;
     private String lightning;
-    private String open;
-    private String close;
+    private String start;
+    private String end;
     private String qtyLeft;
 }

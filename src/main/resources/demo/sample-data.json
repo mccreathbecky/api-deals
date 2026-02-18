@@ -19,8 +19,8 @@
           "discount": "50",
           "dineIn": "false",
           "lightning": "true",
-          "open": "3:00pm",
-          "close": "9:00pm",
+          "start": "3:00pm",
+          "end": "9:00pm",
           "qtyLeft": "5"
         },
         {
@@ -85,8 +85,8 @@
           "discount": "10",
           "dineIn": "true",
           "lightning": "true",
-          "open": "3:00pm",
-          "close": "9:00pm",
+          "start": "3:00pm",
+          "end": "9:00pm",
           "qtyLeft": "5"
         }
       ]

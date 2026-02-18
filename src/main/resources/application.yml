@@ -20,4 +20,4 @@ management:
     web:
       base-path: /manage
       exposure:
-        include: '*'
+        include: 'health,loggers'

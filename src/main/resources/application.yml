@@ -1,9 +1,3 @@
-app:
-  config:
-    peak-deals:
-      window-duration-minutes: 60
-      window-step-minutes: 30
-
 server:
     port: 8080
 

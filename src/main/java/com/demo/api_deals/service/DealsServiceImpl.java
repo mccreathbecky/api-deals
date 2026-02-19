@@ -5,16 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.yaml.snakeyaml.util.Tuple;
 
 import com.demo.api_deals.mapper.ResponseDtoToResponseMapper;
 import com.demo.api_deals.model.DealResponseDto;
-import com.demo.api_deals.model.DealTime;
 import com.demo.api_deals.model.DealsError;
 import com.demo.api_deals.model.RestaurantResponseDto;
+import com.demo.api_deals.model.TimeEvent;
 import com.demo.api_deals.resource.DealsResource;
 import com.demo.contract_api_deals.models.ActiveDealsResponse;
 import com.demo.contract_api_deals.models.Deal;
@@ -31,11 +29,6 @@ public class DealsServiceImpl implements DealsService {
 
     @Autowired
     private DealsResource dealsResource;
-
-    @Value("${app.config.peak-deals.window-duration-minutes:60}")
-    private final int PEAK_WINDOW_DURATION_MINUTES = 60;
-    @Value("${app.config.peak-deals.window-step-minutes:30}")
-    private final int PEAK_WINDOW_STEP_MINUTES = 30;
 
     /**
      * This method retrieves all deals from the DealsResource, filters them based on the provided timeOfDay, and returns a list of active deals in an ActiveDealsResponse object.
@@ -111,8 +104,9 @@ public class DealsServiceImpl implements DealsService {
 
         return dealsResource.getAllDeals()
                 .map(dealsData -> {
-                    List<DealTime> dealTimes = new ArrayList<>(); // List to store the active start and end times for each deal
-                    
+                    // Create events for all deal start and end times
+                    List<TimeEvent> events = new ArrayList<>();
+
                     // 1. Iterate through the deals data to create a list of the start/end time of every deal.
                     // Assume if an individual deal doesn't have a start/end that the restaurant's open/close should be used.
                     for (RestaurantResponseDto restaurant : dealsData.getRestaurants()) {
@@ -127,18 +121,14 @@ public class DealsServiceImpl implements DealsService {
                             LocalTime activeStart = (dealStart != null) ? dealStart : restaurantStart;
                             LocalTime activeEnd = (dealEnd != null) ? dealEnd : restaurantEnd;
 
-                            // Store the active start and end times for this deal in a list for processing in the sliding window algorithm
-                            dealTimes.add(
-                                DealTime.builder()
-                                .dealUUID(deal.getObjectId())
-                                .startTime(activeStart)
-                                .endTime(activeEnd)
-                                .build());
-                        };
+                            // Store the active start and end times for this deal in a list for processing in the peak window algoirthm
+                            events.add(new TimeEvent(activeStart, TimeEvent.EventType.START));
+                            events.add(new TimeEvent(activeEnd, TimeEvent.EventType.END));
+                        }
                     };
 
-                    // 2. Use a sliding window algorithm to determine the 60 minute window with the most deals available.
-                    PeakDealsResponse peakDeals = findPeakDealsWindow(dealTimes, PEAK_WINDOW_DURATION_MINUTES, PEAK_WINDOW_STEP_MINUTES);
+                    // 2. Determine the peak deal window
+                    PeakDealsResponse peakDeals = findPeakDealsWindow(events);
 
                     return peakDeals;
                 })
@@ -146,104 +136,84 @@ public class DealsServiceImpl implements DealsService {
     }
 
     /**
-     * Helper method to find the peak deals window using a sliding window algorithm.
-     * @param dealTimes - a list of DealTime objects representing the active start and end times for each deal
-     * @param windowDurationMinutes - the duration of the window to evaluate in minutes (e.g. 60 for a 60-minute window)
-     * @param windowStepMinutes - the step size in minutes to move the window for each evaluation (e.g. 30 to evaluate every 30 minutes)
+     * Helper method to find the peak deals window using a sweep line algorithm.
+     * @param dealTimes - a list of TimeEvent objects representing the active start and end times for each deal
      * @return  A PeakDealsResponse object containing the start and end time of the peak window with the most active deals
      */
-    private PeakDealsResponse findPeakDealsWindow(List<DealTime> dealTimes, int windowDurationMinutes, int windowStepMinutes) {
-        if (dealTimes.isEmpty()) {
+    private PeakDealsResponse findPeakDealsWindow(List<TimeEvent> events) {
+        if (events == null || events.isEmpty()) {
             return responseMapper.mapPeakDealsResponse(null, null);
         }
 
+            /*
+            Visual Explanation of Sweep Line Algorithm for findPeakDealsWindow:
+
+            Imagine the following example set of deals with their active times (times are in 24-hour format for clarity):
+            Masala Kitchen Deal 1: 3pm ██████ 9pm (50% off)
+            Masala Kitchen Deal 2: 3pm ██████ 9pm (40% off, no specific times → uses restaurant hours)
+            ABC Chicken Deal 1:   12pm ███████████ 11pm
+            ABC Chicken Deal 2:   12pm ███████████ 11pm
+            Vrindavan Deal 1:      3pm ██████ 9pm
+            Kekou Deal 1:          2pm ███████ 9pm
+            Kekou Deal 2:          5pm ████ 9pm
+            Gyoza Deal 1:          4pm █████ 10pm (no start → uses restaurant)
+            Gyoza Deal 2:          4pm █████ 10pm (no end → uses restaurant)
+            OzzyThai Deal 1:       8am ███████ 3pm
+            OzzyThai Deal 2:       8am ███████ 3pm
+
+            Timeline:
+            8am   9am  10am  11am  12pm  1pm  2pm  3pm  4pm  5pm  6pm  7pm  8pm  9pm  10pm  11pm
+            2     2    2     2     4     4    5    7    9    10   10   10   10   8    6     4
+                                                        ↑─────PEAK = 10 deals─────↑
+            
+            */
+
+
+        // Sort events by time, 
+        // If equal, sort START events before END events
+        events.sort((e1, e2) -> {
+            int timeComparison = e1.getTime().compareTo(e2.getTime());
+            if (timeComparison != 0) return timeComparison;
+            return e1.getEventType() == TimeEvent.EventType.START ? -1 : 1; // START events come before END events if times are equal
+        });
+
+
+        // Initialise sweep line variables to track the number of active deals and the peak window
         int maxActiveDeals = 0;
         int currentActiveDeals = 0;
-        final LocalTime[] peakWindowStart = new LocalTime[1];
-        final LocalTime[] peakWindowEnd = new LocalTime[1];
-        
-        // Sort deals by start time to optimize the sliding window algorithm (optional but can improve efficiency)
-        dealTimes.sort((d1, d2) -> d1.getStartTime().compareTo(d2.getStartTime()));
+        LocalTime peakWindowStart = events.get(0).getTime(); // Initialize to the time of the first event
+        LocalTime peakWindowEnd = null; // Initialize to the time of the first event
 
 
-        // Find the time range we need to search
-        LocalTime earliestStart = dealTimes.get(0).getStartTime();
-        
-        LocalTime latestEnd = dealTimes.stream()
-                .map(DealTime::getEndTime)
-                .max(LocalTime::compareTo)
-                .orElse(LocalTime.MAX);
-
-
-
-
-
-
-
-        // Data structure will roughly look like:
-            // [{dealTime:08:30, dealCount:3}, dealTime:09:00, dealCount:5}, {dealTime:09:30, dealCount:2}, ...]
-        List<Tuple<LocalTime, Integer>> windowCount = new ArrayList<>();
-
-        // There is a fixed amount of time intervals to search for, so it will be more efficient to iterate only once through each deal and add it to the appropriate windows it falls into
-        for (DealTime deal : dealTimes) {
-            for (LocalTime windowStart = deal.getStartTime();
-                windowStart.isBefore(deal.getEndTime()); 
-                windowStart = windowStart.plusMinutes(windowStepMinutes)) {
-
-                final LocalTime currentWindowStart = windowStart;  // Create a final copy for use in lambda
-
-                // Check if we already have a count for this window start time
-                Tuple<LocalTime, Integer> existingWindow = windowCount.stream()
-                        .filter(window -> window._1().equals(currentWindowStart))
-                        .findFirst()
-                        .orElse(null);
-
-                if (existingWindow != null) {
-                    // If we already have a count for this window, increment it
-                    windowCount.set(windowCount.indexOf(existingWindow), new Tuple<>(windowStart, existingWindow._2() + 1));
-                } else {
-                    // Otherwise, add a new entry for this window with a count of 1
-                    windowCount.add(new Tuple<>(windowStart, 1));
+        // Sweep through the events, counting active deals and updating the peak window when we find a new maximum
+        for (TimeEvent event : events) {
+            if (event.getEventType() == TimeEvent.EventType.START) {
+                currentActiveDeals++;
+                // Check if this is the new peak
+                if (currentActiveDeals > maxActiveDeals) {
+                    maxActiveDeals = currentActiveDeals;
+                    peakWindowStart = event.getTime();
+                    peakWindowEnd = null; // Reset end time until we find the end of this peak window
                 }
+            } else {
+                // END event
+                // If we're currently at peak and this is the first END, this is when peak ends
+                if (currentActiveDeals == maxActiveDeals && peakWindowEnd == null) {
+                    peakWindowEnd = event.getTime();
+                }
+                currentActiveDeals--;
             }
         }
 
-        // After processing all deals, find the window with the maximum count of active deals
-        windowCount.stream()
-            .max((w1, w2) -> w1._2().compareTo(w2._2()))
-            .ifPresent(maxWindow -> {
-                peakWindowStart[0] = maxWindow._1();
-                peakWindowEnd[0] = peakWindowStart[0].plusMinutes(windowDurationMinutes);
-            });
+        // Handle edge case: peak continues until the last deal ends
+        if (peakWindowEnd == null) {
+            peakWindowEnd = events.get(events.size() - 1).getTime();
+        }
+    
 
-        // for (LocalTime i = dealTimes.get(0).getStartTime(); 
-        //     i.isBefore(LocalTime.MAX.minusMinutes(windowStepMinutes));  // TODO: check if this correctly handles the last window
-        //     i = i.plusMinutes(windowStepMinutes)) {
-
-        //     LocalTime windowStart = i;
-        //     LocalTime windowEnd = windowStart.plusMinutes(windowDurationMinutes);
-
-        //     // Count how many deals are active within this window
-        //     for (DealTime deal : dealTimes) {
-        //         if (isDealValidAtTime(deal.getStartTime(), deal.getEndTime(), windowStart, false)) {
-        //             currentActiveDeals++;
-        //         }
-        //     }
-
-        //     // Update max active deals and corresponding window if this window has more active deals
-        //     if (currentActiveDeals > maxActiveDeals) {
-        //         maxActiveDeals = currentActiveDeals;
-        //         peakWindowStart = windowStart;
-        //         peakWindowEnd = windowEnd;
-        //     }
-
-        //     // Reset count for the next window
-        //     currentActiveDeals = 0;
-        // }
-
-
-        return responseMapper.mapPeakDealsResponse(peakWindowStart[0], peakWindowEnd[0]);
+        return responseMapper.mapPeakDealsResponse(peakWindowStart, peakWindowEnd);
     }
+
 
     /**
      * Helper method to handle errors and create a consistent error response structure.

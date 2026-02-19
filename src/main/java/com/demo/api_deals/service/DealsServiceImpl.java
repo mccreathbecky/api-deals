@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.util.Tuple;
 
 import com.demo.api_deals.mapper.ResponseDtoToResponseMapper;
 import com.demo.api_deals.model.DealResponseDto;
@@ -152,42 +153,96 @@ public class DealsServiceImpl implements DealsService {
      * @return  A PeakDealsResponse object containing the start and end time of the peak window with the most active deals
      */
     private PeakDealsResponse findPeakDealsWindow(List<DealTime> dealTimes, int windowDurationMinutes, int windowStepMinutes) {
-        
-        int maxActiveDeals = 0;
-        int currentActiveDeals = 0;
-        LocalTime peakWindowStart = null;
-        LocalTime peakWindowEnd = null;
-
-        // Sort dealTimes by start time to optimize the sliding window algorithm
-        dealTimes.sort((d1, d2) -> d1.getStartTime().compareTo(d2.getStartTime()));
-
-        for (LocalTime i = dealTimes.get(0).getStartTime(); 
-            i.isBefore(LocalTime.MAX.minusMinutes(windowStepMinutes));  // TODO: check if this correctly handles the last window
-            i = i.plusMinutes(windowStepMinutes)) {
-
-            LocalTime windowStart = i;
-            LocalTime windowEnd = windowStart.plusMinutes(windowDurationMinutes);
-
-            // Count how many deals are active within this window
-            for (DealTime deal : dealTimes) {
-                if (isDealValidAtTime(deal.getStartTime(), deal.getEndTime(), windowStart, false)) {
-                    currentActiveDeals++;
-                }
-            }
-
-            // Update max active deals and corresponding window if this window has more active deals
-            if (currentActiveDeals > maxActiveDeals) {
-                maxActiveDeals = currentActiveDeals;
-                peakWindowStart = windowStart;
-                peakWindowEnd = windowEnd;
-            }
-
-            // Reset count for the next window
-            currentActiveDeals = 0;
+        if (dealTimes.isEmpty()) {
+            return responseMapper.mapPeakDealsResponse(null, null);
         }
 
+        int maxActiveDeals = 0;
+        int currentActiveDeals = 0;
+        final LocalTime[] peakWindowStart = new LocalTime[1];
+        final LocalTime[] peakWindowEnd = new LocalTime[1];
+        
+        // Sort deals by start time to optimize the sliding window algorithm (optional but can improve efficiency)
+        dealTimes.sort((d1, d2) -> d1.getStartTime().compareTo(d2.getStartTime()));
 
-        return responseMapper.mapPeakDealsResponse(peakWindowStart, peakWindowEnd);
+
+        // Find the time range we need to search
+        LocalTime earliestStart = dealTimes.get(0).getStartTime();
+        
+        LocalTime latestEnd = dealTimes.stream()
+                .map(DealTime::getEndTime)
+                .max(LocalTime::compareTo)
+                .orElse(LocalTime.MAX);
+
+
+
+
+
+
+
+        // Data structure will roughly look like:
+            // [{dealTime:08:30, dealCount:3}, dealTime:09:00, dealCount:5}, {dealTime:09:30, dealCount:2}, ...]
+        List<Tuple<LocalTime, Integer>> windowCount = new ArrayList<>();
+
+        // There is a fixed amount of time intervals to search for, so it will be more efficient to iterate only once through each deal and add it to the appropriate windows it falls into
+        for (DealTime deal : dealTimes) {
+            for (LocalTime windowStart = deal.getStartTime();
+                windowStart.isBefore(deal.getEndTime()); 
+                windowStart = windowStart.plusMinutes(windowStepMinutes)) {
+
+                final LocalTime currentWindowStart = windowStart;  // Create a final copy for use in lambda
+
+                // Check if we already have a count for this window start time
+                Tuple<LocalTime, Integer> existingWindow = windowCount.stream()
+                        .filter(window -> window._1().equals(currentWindowStart))
+                        .findFirst()
+                        .orElse(null);
+
+                if (existingWindow != null) {
+                    // If we already have a count for this window, increment it
+                    windowCount.set(windowCount.indexOf(existingWindow), new Tuple<>(windowStart, existingWindow._2() + 1));
+                } else {
+                    // Otherwise, add a new entry for this window with a count of 1
+                    windowCount.add(new Tuple<>(windowStart, 1));
+                }
+            }
+        }
+
+        // After processing all deals, find the window with the maximum count of active deals
+        windowCount.stream()
+            .max((w1, w2) -> w1._2().compareTo(w2._2()))
+            .ifPresent(maxWindow -> {
+                peakWindowStart[0] = maxWindow._1();
+                peakWindowEnd[0] = peakWindowStart[0].plusMinutes(windowDurationMinutes);
+            });
+
+        // for (LocalTime i = dealTimes.get(0).getStartTime(); 
+        //     i.isBefore(LocalTime.MAX.minusMinutes(windowStepMinutes));  // TODO: check if this correctly handles the last window
+        //     i = i.plusMinutes(windowStepMinutes)) {
+
+        //     LocalTime windowStart = i;
+        //     LocalTime windowEnd = windowStart.plusMinutes(windowDurationMinutes);
+
+        //     // Count how many deals are active within this window
+        //     for (DealTime deal : dealTimes) {
+        //         if (isDealValidAtTime(deal.getStartTime(), deal.getEndTime(), windowStart, false)) {
+        //             currentActiveDeals++;
+        //         }
+        //     }
+
+        //     // Update max active deals and corresponding window if this window has more active deals
+        //     if (currentActiveDeals > maxActiveDeals) {
+        //         maxActiveDeals = currentActiveDeals;
+        //         peakWindowStart = windowStart;
+        //         peakWindowEnd = windowEnd;
+        //     }
+
+        //     // Reset count for the next window
+        //     currentActiveDeals = 0;
+        // }
+
+
+        return responseMapper.mapPeakDealsResponse(peakWindowStart[0], peakWindowEnd[0]);
     }
 
     /**

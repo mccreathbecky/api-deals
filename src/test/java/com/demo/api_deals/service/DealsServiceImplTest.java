@@ -134,6 +134,30 @@ public class DealsServiceImplTest extends BaseTestClass {
         Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
     }
 
+    @Test
+    void testGetActiveDeals_onStandardSuccessResponse_with1amTimeOfDay_expect0Results() {
+        // Arrange
+        // Use shared mock response already initiated
+        LocalTime timeOfDay = LocalTime.of(1, 0); // 1:00 AM
+
+        Mockito.when(dealsResource.getAllDeals())
+                .thenReturn(Mono.just(mockResponse)
+                        .delayElement(Duration.ofMillis(500))); // Simulate some delay in response
+
+        // Act
+        StepVerifier.create(dealsService.getActiveDeals(timeOfDay))
+                // Assert
+                .thenConsumeWhile( activeDealsResponse -> 
+                        {
+                        assertNotNull(activeDealsResponse.getDeals());
+                        assertEquals(0, activeDealsResponse.getDeals().size(), "Expected 0 active deals");
+                        return true; // Continue consuming if all assertions pass
+                        })
+                .verifyComplete();
+
+        Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
+    }
+
 
     @Test
     void testGetActiveDeals_onNullPointerException_expectDealsErrorThrown() {

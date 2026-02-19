@@ -29,6 +29,11 @@ public class DealsServiceImpl implements DealsService {
     @Autowired
     private DealsResource dealsResource;
 
+    /**
+     * This method retrieves all deals from the DealsResource, filters them based on the provided timeOfDay, and returns a list of active deals in an ActiveDealsResponse object.
+     * @param timeOfDay - The time to check the deals against, as a LocalTime object
+     * @return A Mono containing an ActiveDealsResponse object with the list of active deals at the given timeOfDay (or empty if nothing returned)
+     */
     @Override
     public Mono<ActiveDealsResponse> getActiveDeals(LocalTime timeOfDay) {
 
@@ -96,6 +101,11 @@ public class DealsServiceImpl implements DealsService {
                 .doOnError(this::handleError);
     }
 
+    /**
+     * Helper method to handle errors and create a consistent error response structure.
+     * @param throwable - The exception that occurred during processing
+     * @return A DealsError object containing error details to be returned in the response
+     */
     private Throwable handleError(Throwable throwable) {
         return DealsError.builder()
                 .message("Failed to retrieve deals data: " + throwable.getMessage())

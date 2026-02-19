@@ -68,6 +68,35 @@ public class DealsApiControllerTest extends BaseTestClass {
     }
 
     @Test
+    void testGetActiveDeals_onEmptyResponse_expectSuccess() {
+        // Arrange
+        ActiveDealsResponse mockResponse = ActiveDealsResponse.builder()
+                .deals(null)
+                .build();
+        String timeOfDay = "14:30";
+
+        Mockito.when(dealsService.getActiveDeals(any(LocalTime.class)))
+                .thenReturn(Mono.just(mockResponse)
+                .delayElement(Duration.ofMillis(500)));
+
+        // Act
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/v1/active")
+                        .queryParam("timeOfDay", timeOfDay)
+                        .build())
+                .header("x-api-key", "DUMMY_VALUE")
+                .exchange()
+
+        // Assert
+                .expectStatus().isEqualTo(200)
+                .expectBody(ActiveDealsResponse.class)
+                .isEqualTo(mockResponse);
+
+        Mockito.verify(dealsService, Mockito.times(1)).getActiveDeals(any(LocalTime.class));
+    }
+
+    @Test
     void testGetActiveDeals_onInvalidQueryParam_expect400BadRequest() {
         // Arrange
         ActiveDealsResponse mockResponse = (ActiveDealsResponse) fileLoader.readFileAsObject("responses/service-success-deals-response.json", ActiveDealsResponse.class);

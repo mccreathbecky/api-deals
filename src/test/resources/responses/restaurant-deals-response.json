@@ -24,7 +24,7 @@
           "qtyLeft": "5"
         },
         {
-          "objectId": "DEA567C5-1111-3C03-FF00-E3B24909BE00",
+          "objectId": "DEA567C5-1111-3C03-FF00-E3B24909BE01",
           "discount": "40",
           "dineIn": "true",
           "lightning": "false",
@@ -53,14 +53,14 @@
       "close": "11:00pm",
       "deals": [
         {
-          "objectId": "D80263E8-0000-2C70-FF6B-D854ADB8DB00",
+          "objectId": "D80263E8-0000-2C70-FF6B-D854ADB8DB02",
           "discount": "30",
           "dineIn": "false",
           "lightning": "false",
           "qtyLeft": "1"
         },
         {
-          "objectId": "D80263E8-1111-2C70-FF6B-D854ADB8DB00",
+          "objectId": "D80263E8-1111-2C70-FF6B-D854ADB8DB03",
           "discount": "20",
           "dineIn": "true",
           "lightning": "false",
@@ -81,7 +81,7 @@
       "close": "9:00pm",
       "deals": [
         {
-          "objectId": "CDB2B42A-0000-EE20-FF45-8D0A8057E200",
+          "objectId": "CDB2B42A-0000-EE20-FF45-8D0A8057E204",
           "discount": "10",
           "dineIn": "true",
           "lightning": "true",

@@ -83,7 +83,7 @@ public class DealsServiceImpl implements DealsService {
         }
 
         return (timeOfDay.equals(startTime) || timeOfDay.isAfter(startTime))
-         && (timeOfDay.equals(endTime) || timeOfDay.isBefore(endTime));
+         && timeOfDay.isBefore(endTime);
     }
 
 

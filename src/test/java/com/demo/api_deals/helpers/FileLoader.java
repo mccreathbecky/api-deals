@@ -9,11 +9,13 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class FileLoader<T>{
 
+    private Class<T> clazz;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public T readFileAsObject(String filePath, Class<T> clazz) {
+        this.clazz = clazz;
         try {
-            ClassLoader classLoader = clazz.getClass().getClassLoader();
+            ClassLoader classLoader = this.getClass().getClassLoader();
             InputStream inputStream = classLoader.getResourceAsStream(filePath);
             return (T) objectMapper.readValue(inputStream, clazz);
         } catch (Exception e) {
@@ -22,8 +24,9 @@ public class FileLoader<T>{
     }
 
     public String readFileAsString(String filePath, Class<T> clazz) {
+        this.clazz = clazz;
         try {
-            ClassLoader classLoader = clazz.getClass().getClassLoader();
+            ClassLoader classLoader = this.getClass().getClassLoader();
             InputStream inputStream = classLoader.getResourceAsStream(filePath);
             return new String(inputStream.readAllBytes());
         } catch (Exception e) {

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import com.demo.api_deals.model.DealResponseDto;
 import com.demo.api_deals.model.RestaurantResponseDto;
 import com.demo.contract_api_deals.models.Deal;
+import com.demo.contract_api_deals.models.PeakDealsResponse;
 
 @Service
 public class ResponseDtoToResponseMapper {
@@ -34,6 +35,10 @@ public class ResponseDtoToResponseMapper {
             .lightning(Boolean.valueOf(dealDto.getLightning()))
             .qtyLeft(Integer.valueOf(dealDto.getQtyLeft()))
             .build();
+    }
+
+    public PeakDealsResponse mapPeakDealsResponse(LocalTime peakWindowStart, LocalTime peakWindowEnd) {
+        return new PeakDealsResponse(peakWindowStart.format(UPSTREAM_TIME_FORMATTER), peakWindowEnd.format(UPSTREAM_TIME_FORMATTER));
     }
 
     

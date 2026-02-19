@@ -5,11 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.demo.api_deals.mapper.ResponseDtoToResponseMapper;
 import com.demo.api_deals.model.DealResponseDto;
+import com.demo.api_deals.model.DealTime;
 import com.demo.api_deals.model.DealsError;
 import com.demo.api_deals.model.RestaurantResponseDto;
 import com.demo.api_deals.resource.DealsResource;
@@ -28,6 +30,11 @@ public class DealsServiceImpl implements DealsService {
 
     @Autowired
     private DealsResource dealsResource;
+
+    @Value("${app.config.peak-deals.window-duration-minutes:60}")
+    private final int PEAK_WINDOW_DURATION_MINUTES = 60;
+    @Value("${app.config.peak-deals.window-step-minutes:30}")
+    private final int PEAK_WINDOW_STEP_MINUTES = 30;
 
     /**
      * This method retrieves all deals from the DealsResource, filters them based on the provided timeOfDay, and returns a list of active deals in an ActiveDealsResponse object.
@@ -49,14 +56,14 @@ public class DealsServiceImpl implements DealsService {
                         LocalTime restaurantEnd = responseMapper.parseRestaurantTime(restaurant.getClose());
 
                         // 1. Check if the restaurant is open at the given timeOfDay
-                        if (isDealValidAtTime(restaurantStart, restaurantEnd, timeOfDay)) {
+                        if (isDealValidAtTime(restaurantStart, restaurantEnd, timeOfDay, true)) {
 
                             // 2. If open, check if each deal is active at the given timeOfDay (or has null for start/end times in which case it's assumed active)
                                 for (DealResponseDto deal : restaurant.getDeals()) {
                                     LocalTime dealStart = responseMapper.parseRestaurantTime(deal.getStart());
                                     LocalTime dealEnd = responseMapper.parseRestaurantTime(deal.getEnd());
 
-                                    if (isDealValidAtTime(dealStart, dealEnd, timeOfDay)) {
+                                    if (isDealValidAtTime(dealStart, dealEnd, timeOfDay, true)) {
                                         // 3. If the deal is active, create a Deal object combining restaurant and deal information
                                         Deal activeDeal = responseMapper.mapActiveDealResponse(restaurant, deal);
 
@@ -80,11 +87,12 @@ public class DealsServiceImpl implements DealsService {
      * @param startTime - The start time of the deal/restaurant hours as a LocalTime object (can be null)
      * @param endTime   - The end time of the deal/restaurant hours as a LocalTime object (can be null)
      * @param timeOfDay - The time to check the deal/restaurant hours against, as a LocalTime object
+     * @param assumeValidIfNull - A boolean flag indicating whether to assume the deal is valid if either startTime or endTime is null (true means assume valid, false means assume invalid)
      * @return
      */
-    private boolean isDealValidAtTime(LocalTime startTime, LocalTime endTime, LocalTime timeOfDay) {
+    private boolean isDealValidAtTime(LocalTime startTime, LocalTime endTime, LocalTime timeOfDay, boolean assumeValidIfNull) {
         if (startTime == null || endTime == null) {
-            return true; // Assume open if no hours provided
+            return assumeValidIfNull;
         }
 
         return (timeOfDay.equals(startTime) || timeOfDay.isAfter(startTime))
@@ -92,13 +100,94 @@ public class DealsServiceImpl implements DealsService {
     }
 
 
+    /**
+     * Retrieves the peak period during which the most deals are available.
+     * Assumes that the peak period is defined as a continuous 60-minute window where the highest number of deals are active.
+     * 
+     */
     @Override
     public Mono<PeakDealsResponse> getPeakDeals() {
-        // Implement the logic to retrieve peak deals
-        // For demonstration, return a static response
-        PeakDealsResponse peakDeals = new PeakDealsResponse("10:00", "11:30");
-        return Mono.just(peakDeals)
+
+        return dealsResource.getAllDeals()
+                .map(dealsData -> {
+                    List<DealTime> dealTimes = new ArrayList<>(); // List to store the active start and end times for each deal
+                    
+                    // 1. Iterate through the deals data to create a list of the start/end time of every deal.
+                    // Assume if an individual deal doesn't have a start/end that the restaurant's open/close should be used.
+                    for (RestaurantResponseDto restaurant : dealsData.getRestaurants()) {
+                        LocalTime restaurantStart = responseMapper.parseRestaurantTime(restaurant.getOpen());
+                        LocalTime restaurantEnd = responseMapper.parseRestaurantTime(restaurant.getClose());
+
+                        for (DealResponseDto deal : restaurant.getDeals()) {
+                            LocalTime dealStart = responseMapper.parseRestaurantTime(deal.getStart());
+                            LocalTime dealEnd = responseMapper.parseRestaurantTime(deal.getEnd());
+
+                            // Use deal times if provided, otherwise fall back to restaurant hours
+                            LocalTime activeStart = (dealStart != null) ? dealStart : restaurantStart;
+                            LocalTime activeEnd = (dealEnd != null) ? dealEnd : restaurantEnd;
+
+                            // Store the active start and end times for this deal in a list for processing in the sliding window algorithm
+                            dealTimes.add(
+                                DealTime.builder()
+                                .dealUUID(deal.getObjectId())
+                                .startTime(activeStart)
+                                .endTime(activeEnd)
+                                .build());
+                        };
+                    };
+
+                    // 2. Use a sliding window algorithm to determine the 60 minute window with the most deals available.
+                    PeakDealsResponse peakDeals = findPeakDealsWindow(dealTimes, PEAK_WINDOW_DURATION_MINUTES, PEAK_WINDOW_STEP_MINUTES);
+
+                    return peakDeals;
+                })
                 .doOnError(this::handleError);
+    }
+
+    /**
+     * Helper method to find the peak deals window using a sliding window algorithm.
+     * @param dealTimes - a list of DealTime objects representing the active start and end times for each deal
+     * @param windowDurationMinutes - the duration of the window to evaluate in minutes (e.g. 60 for a 60-minute window)
+     * @param windowStepMinutes - the step size in minutes to move the window for each evaluation (e.g. 30 to evaluate every 30 minutes)
+     * @return  A PeakDealsResponse object containing the start and end time of the peak window with the most active deals
+     */
+    private PeakDealsResponse findPeakDealsWindow(List<DealTime> dealTimes, int windowDurationMinutes, int windowStepMinutes) {
+        
+        int maxActiveDeals = 0;
+        int currentActiveDeals = 0;
+        LocalTime peakWindowStart = null;
+        LocalTime peakWindowEnd = null;
+
+        // Sort dealTimes by start time to optimize the sliding window algorithm
+        dealTimes.sort((d1, d2) -> d1.getStartTime().compareTo(d2.getStartTime()));
+
+        for (LocalTime i = dealTimes.get(0).getStartTime(); 
+            i.isBefore(LocalTime.MAX.minusMinutes(windowStepMinutes));  // TODO: check if this correctly handles the last window
+            i = i.plusMinutes(windowStepMinutes)) {
+
+            LocalTime windowStart = i;
+            LocalTime windowEnd = windowStart.plusMinutes(windowDurationMinutes);
+
+            // Count how many deals are active within this window
+            for (DealTime deal : dealTimes) {
+                if (isDealValidAtTime(deal.getStartTime(), deal.getEndTime(), windowStart, false)) {
+                    currentActiveDeals++;
+                }
+            }
+
+            // Update max active deals and corresponding window if this window has more active deals
+            if (currentActiveDeals > maxActiveDeals) {
+                maxActiveDeals = currentActiveDeals;
+                peakWindowStart = windowStart;
+                peakWindowEnd = windowEnd;
+            }
+
+            // Reset count for the next window
+            currentActiveDeals = 0;
+        }
+
+
+        return responseMapper.mapPeakDealsResponse(peakWindowStart, peakWindowEnd);
     }
 
     /**

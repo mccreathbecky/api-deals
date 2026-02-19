@@ -1,4 +1,4 @@
-package com.demo.api_deals.models;
+package com.demo.api_deals.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

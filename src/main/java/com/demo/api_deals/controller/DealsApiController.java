@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 
-import com.demo.api_deals.models.DealsError;
+import com.demo.api_deals.model.DealsError;
 import com.demo.api_deals.service.DealsService;
 import com.demo.contract_api_deals.interfaces.DealsApi;
 import com.demo.contract_api_deals.models.ActiveDealsResponse;
@@ -54,8 +54,8 @@ public class DealsApiController implements DealsApi {
 
             // TODO: ensure errors throw back to user with the correct format and details (e.g. error code, message, HTTP status)
             throw DealsError.builder()
-                .message("Invalid timeOfDay format. Expected HH:mm.")
-                .errorCode("InvalidTimeFormat")
+                .message("Invalid format for queryParameter: timeOfDay. Expected HH:mm e.g. 14:30")
+                .errorCode("BAD_REQUEST")
                 .throwable(e)
                 .httpStatus(HttpStatus.BAD_REQUEST)
                 .build();

@@ -4,7 +4,7 @@ import java.io.InputStream;
 
 import org.springframework.stereotype.Component;
 
-import com.demo.api_deals.models.RestaurauntDealsResponseDto;
+import com.demo.api_deals.model.RestaurauntDealsResponseDto;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;

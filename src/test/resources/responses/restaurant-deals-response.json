@@ -148,6 +148,7 @@
           "discount": "25",
           "dineIn": "true",
           "lightning": "false",
+          "end": "10:00pm",
           "qtyLeft": "3"
         },
         {
@@ -155,6 +156,7 @@
           "discount": "15",
           "dineIn": "false",
           "lightning": "false",
+          "start": "4:00pm",
           "qtyLeft": "4"
         }
       ]

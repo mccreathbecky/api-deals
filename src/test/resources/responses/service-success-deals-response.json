@@ -1,0 +1,69 @@
+{
+  "deals": [
+    {
+      "restaurantObjectId": "DEA567C5-F64C-3C03-FF00-E3B24909BE00",
+      "restaurantName": "Masala Kitchen",
+      "restaurantAddress1": "55 Walsh Street",
+      "restaurantSuburb": "Lower East",
+      "restaurantOpen": "15:00",
+      "restaurantClose": "21:00",
+      "dealObjectId": "DEA567C5-0000-3C03-FF00-E3B24909BE00",
+      "discount": 50,
+      "dineIn": false,
+      "lightning": true,
+      "qtyLeft": 5
+    },
+    {
+      "restaurantObjectId": "DEA567C5-F64C-3C03-FF00-E3B24909BE00",
+      "restaurantName": "Masala Kitchen",
+      "restaurantAddress1": "55 Walsh Street",
+      "restaurantSuburb": "Lower East",
+      "restaurantOpen": "15:00",
+      "restaurantClose": "21:00",
+      "dealObjectId": "DEA567C5-1111-3C03-FF00-E3B24909BE01",
+      "discount": 40,
+      "dineIn": true,
+      "lightning": false,
+      "qtyLeft": 4
+    },
+    {
+      "restaurantObjectId": "D80263E8-FD89-2C70-FF6B-D854ADB8DB00",
+      "restaurantName": "ABC Chicken",
+      "restaurantAddress1": "361 Queen Street",
+      "restaurantSuburb": "Melbourne",
+      "restaurantOpen": "12:00",
+      "restaurantClose": "23:00",
+      "dealObjectId": "D80263E8-0000-2C70-FF6B-D854ADB8DB02",
+      "discount": 30,
+      "dineIn": false,
+      "lightning": false,
+      "qtyLeft": 1
+    },
+    {
+      "restaurantObjectId": "D80263E8-FD89-2C70-FF6B-D854ADB8DB00",
+      "restaurantName": "ABC Chicken",
+      "restaurantAddress1": "361 Queen Street",
+      "restaurantSuburb": "Melbourne",
+      "restaurantOpen": "12:00",
+      "restaurantClose": "23:00",
+      "dealObjectId": "D80263E8-1111-2C70-FF6B-D854ADB8DB03",
+      "discount": 20,
+      "dineIn": true,
+      "lightning": false,
+      "qtyLeft": 4
+    },
+    {
+      "restaurantObjectId": "B5713CD0-91BF-40C7-AFC3-7D46D26B00BF",
+      "restaurantName": "Kekou",
+      "restaurantAddress1": "396 Bridge Road",
+      "restaurantSuburb": "Richmond",
+      "restaurantOpen": "13:00",
+      "restaurantClose": "23:00",
+      "dealObjectId": "B5713CD0-0000-40C7-AFC3-7D46D26B00BF",
+      "discount": 10,
+      "dineIn": true,
+      "lightning": true,
+      "qtyLeft": 3
+    }
+  ]
+}

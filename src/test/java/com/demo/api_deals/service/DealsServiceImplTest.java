@@ -2,6 +2,7 @@ package com.demo.api_deals.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
 import java.time.LocalTime;
@@ -13,10 +14,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.demo.api_deals.BaseTestClass;
 import com.demo.api_deals.helpers.FileLoader;
+import com.demo.api_deals.model.DealsError;
 import com.demo.api_deals.model.RestaurauntDealsResponseDto;
 import com.demo.api_deals.resource.DealsResource;
 
@@ -33,7 +36,7 @@ public class DealsServiceImplTest extends BaseTestClass {
     @Autowired
     private DealsServiceImpl dealsService;
 
-    private static final FileLoader fileLoader = new FileLoader();
+    private final FileLoader fileLoader = new FileLoader();
     private final RestaurauntDealsResponseDto mockResponse = (RestaurauntDealsResponseDto) fileLoader.readFileAsObject("responses/restaurant-deals-response.json", RestaurauntDealsResponseDto.class);
 
     @Test
@@ -49,7 +52,7 @@ public class DealsServiceImplTest extends BaseTestClass {
         // Act
         StepVerifier.create(dealsService.getActiveDeals(timeOfDay))
                 // Assert
-                .thenConsumeWhile(activeDealsResponse -> 
+                .thenConsumeWhile( activeDealsResponse -> 
                         {
                         assertNotNull(activeDealsResponse.getDeals());
                         assertEquals(5, activeDealsResponse.getDeals().size(), "Expected 5 active deals");
@@ -127,6 +130,55 @@ public class DealsServiceImplTest extends BaseTestClass {
                         return true; // Continue consuming if all assertions pass
                         })
                 .verifyComplete();
+
+        Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
+    }
+
+
+    @Test
+    void testGetActiveDeals_onNullPointerException_expectDealsErrorThrown() {
+        // Arrange
+        LocalTime timeOfDay = LocalTime.of(15, 0); // 3:00 PM
+
+        Mockito.when(dealsResource.getAllDeals())
+            .thenReturn(Mono.error(new NullPointerException("Simulated null pointer exception")));
+
+        // Act
+        StepVerifier.create(dealsService.getActiveDeals(timeOfDay))
+            // Assert
+            .consumeErrorWith(throwable -> 
+                {
+                    assertTrue(throwable instanceof DealsError);
+                    DealsError dealsError = (DealsError) throwable;
+                    assertEquals("Failed to retrieve deals data: Simulated null pointer exception", dealsError.getMessage());
+                    assertEquals("Internal Server Error", dealsError.getErrorCode());
+                    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, dealsError.getHttpStatus());
+                }
+            );
+
+        Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
+    }
+
+    @Test
+    void testGetActiveDeals_onRuntimeException_expectDealsErrorThrown() {
+        // Arrange
+        LocalTime timeOfDay = LocalTime.of(15, 0); // 3:00 PM
+
+        Mockito.when(dealsResource.getAllDeals())
+            .thenReturn(Mono.error(new RuntimeException("Simulated runtime exception")));
+
+        // Act
+        StepVerifier.create(dealsService.getActiveDeals(timeOfDay))
+            // Assert
+            .consumeErrorWith(throwable -> 
+                {
+                    assertTrue(throwable instanceof DealsError);
+                    DealsError dealsError = (DealsError) throwable;
+                    assertEquals("Failed to retrieve deals data: Simulated runtime exception", dealsError.getMessage());
+                    assertEquals("Internal Server Error", dealsError.getErrorCode());
+                    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, dealsError.getHttpStatus());
+                }
+            );
 
         Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
     }

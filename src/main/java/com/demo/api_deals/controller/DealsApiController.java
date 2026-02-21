@@ -29,10 +29,11 @@ public class DealsApiController implements DealsApi {
     private static final DateTimeFormatter UPSTREAM_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     
 
+    // TODO: Implement API Key validation
     @Override
     public Mono<ResponseEntity<ActiveDealsResponse>> getActiveDeals(String timeOfDay, String xTrackingId, ServerWebExchange exchange) {
 
-        // TODO: Add logic to validate timeOfDay format and return appropriate error response if invalid
+        // Validate timeOfDay format and return appropriate error response if invalid
         LocalTime parsedTimeOfDay = parseTimeOfDay(timeOfDay);
 
         return dealsService.getActiveDeals(parsedTimeOfDay)
@@ -52,7 +53,6 @@ public class DealsApiController implements DealsApi {
             return LocalTime.parse(timeOfDay, UPSTREAM_TIME_FORMATTER);
         } catch (DateTimeParseException e) {
 
-            // TODO: ensure errors throw back to user with the correct format and details (e.g. error code, message, HTTP status)
             throw DealsError.builder()
                 .message("Invalid format for queryParameter: timeOfDay. Expected HH:mm e.g. 14:30")
                 .errorCode("BAD_REQUEST")
@@ -62,6 +62,7 @@ public class DealsApiController implements DealsApi {
         }
     }
 
+    // TODO: Implement API Key validation
     @Override
     public Mono<ResponseEntity<PeakDealsResponse>> getPeakDeals(String xTrackingId, ServerWebExchange exchange) {
 

@@ -27,8 +27,8 @@ public class ResponseDtoToResponseMapper {
             .restaurantName(restaurantDto.getName())
             .restaurantAddress1(restaurantDto.getAddress1())
             .restaurantSuburb(restaurantDto.getSuburb())
-            .restaurantOpen(formatRestaurantTimeForUpstream(restaurantDto.getOpen()))
-            .restaurantClose(formatRestaurantTimeForUpstream(restaurantDto.getClose()))
+            .restaurantOpen(formatRestaurantDtoTimeForUpstream(restaurantDto.getOpen()))
+            .restaurantClose(formatRestaurantDtoTimeForUpstream(restaurantDto.getClose()))
             .dealObjectId(dealDto.getObjectId())
             .discount(Integer.valueOf(dealDto.getDiscount()))
             .dineIn(Boolean.valueOf(dealDto.getDineIn()))
@@ -38,7 +38,7 @@ public class ResponseDtoToResponseMapper {
     }
 
     public PeakDealsResponse mapPeakDealsResponse(LocalTime peakWindowStart, LocalTime peakWindowEnd) {
-        return new PeakDealsResponse(peakWindowStart.format(UPSTREAM_TIME_FORMATTER), peakWindowEnd.format(UPSTREAM_TIME_FORMATTER));
+        return new PeakDealsResponse(formatLocalTimeForUpstream(peakWindowStart), formatLocalTimeForUpstream(peakWindowEnd));
     }
 
     
@@ -48,7 +48,7 @@ public class ResponseDtoToResponseMapper {
      * @param time - the string object representing the restaurant hours to format (e.g. 11:30am). Can be null, in which case null is returned.
      * @return a string representing the formatted time in "HH:mm" format (e.g. 11:30), or null if input time is null or invalid
      */
-    public String formatRestaurantTimeForUpstream(String time) {
+    public String formatRestaurantDtoTimeForUpstream(String time) {
         if (time == null) {
             return null;
         }
@@ -62,6 +62,25 @@ public class ResponseDtoToResponseMapper {
         }
     }
 
+    /**
+     * Helper method to format restaurant hours into the expected "HH:mm" format for the API response. 
+     * If input time is null, returns null. If input time is in an invalid format, logs the error and returns null (treating it as invalid/unknown time).
+     * @param time - the string object representing the restaurant hours to format (e.g. 11:30am). Can be null, in which case null is returned.
+     * @return a string representing the formatted time in "HH:mm" format (e.g. 11:30), or null if input time is null or invalid
+     */
+    public String formatLocalTimeForUpstream(LocalTime time) {
+        if (time == null) {
+            return null;
+        }
+        try {
+            return time.format(UPSTREAM_TIME_FORMATTER);
+        } catch (DateTimeParseException e) {
+            // Log the error and treat as invalid time format, excluding the deal from results (since we can't confirm it's active without a valid time)
+            // TODO: improve this logging
+            System.err.println("Failed to format LocalTime time: " + time + ". Error: " + e.getMessage());
+            return null;
+        }
+    }
 
 
     /**
@@ -69,7 +88,7 @@ public class ResponseDtoToResponseMapper {
      * @param time - the input time string to parse, expected in 12-hour format with am/pm (e.g. "3:00pm", "12:00am"). Can be null, in which case null is returned.
      * @return
      */
-    public LocalTime parseRestaurantTime(String time) {
+    public LocalTime parseRestaurantDtoTime(String time) {
         if (time == null || time.isEmpty()) {
             return null;
         }

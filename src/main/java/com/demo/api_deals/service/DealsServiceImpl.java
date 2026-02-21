@@ -46,16 +46,16 @@ public class DealsServiceImpl implements DealsService {
                     for (RestaurantResponseDto restaurant : dealsData.getRestaurants()) {
 
                         // Parse times into LocalTime for easier comparison
-                        LocalTime restaurantStart = responseMapper.parseRestaurantTime(restaurant.getOpen());
-                        LocalTime restaurantEnd = responseMapper.parseRestaurantTime(restaurant.getClose());
+                        LocalTime restaurantStart = responseMapper.parseRestaurantDtoTime(restaurant.getOpen());
+                        LocalTime restaurantEnd = responseMapper.parseRestaurantDtoTime(restaurant.getClose());
 
                         // 1. Check if the restaurant is open at the given timeOfDay
                         if (isDealValidAtTime(restaurantStart, restaurantEnd, timeOfDay, true)) {
 
                             // 2. If open, check if each deal is active at the given timeOfDay (or has null for start/end times in which case it's assumed active)
                                 for (DealResponseDto deal : restaurant.getDeals()) {
-                                    LocalTime dealStart = responseMapper.parseRestaurantTime(deal.getStart());
-                                    LocalTime dealEnd = responseMapper.parseRestaurantTime(deal.getEnd());
+                                    LocalTime dealStart = responseMapper.parseRestaurantDtoTime(deal.getStart());
+                                    LocalTime dealEnd = responseMapper.parseRestaurantDtoTime(deal.getEnd());
 
                                     if (isDealValidAtTime(dealStart, dealEnd, timeOfDay, true)) {
                                         // 3. If the deal is active, create a Deal object combining restaurant and deal information
@@ -104,18 +104,26 @@ public class DealsServiceImpl implements DealsService {
 
         return dealsResource.getAllDeals()
                 .map(dealsData -> {
+                    if (dealsData == null || dealsData.getRestaurants() == null) {
+                        return responseMapper.mapPeakDealsResponse(null, null);
+                    }
+
                     // Create events for all deal start and end times
                     List<TimeEvent> events = new ArrayList<>();
 
                     // 1. Iterate through the deals data to create a list of the start/end time of every deal.
                     // Assume if an individual deal doesn't have a start/end that the restaurant's open/close should be used.
                     for (RestaurantResponseDto restaurant : dealsData.getRestaurants()) {
-                        LocalTime restaurantStart = responseMapper.parseRestaurantTime(restaurant.getOpen());
-                        LocalTime restaurantEnd = responseMapper.parseRestaurantTime(restaurant.getClose());
+                        LocalTime restaurantStart = responseMapper.parseRestaurantDtoTime(restaurant.getOpen());
+                        LocalTime restaurantEnd = responseMapper.parseRestaurantDtoTime(restaurant.getClose());
+
+                        if (restaurant.getDeals() == null) {
+                            continue; // No deals for this restaurant, skip to the next one
+                        }
 
                         for (DealResponseDto deal : restaurant.getDeals()) {
-                            LocalTime dealStart = responseMapper.parseRestaurantTime(deal.getStart());
-                            LocalTime dealEnd = responseMapper.parseRestaurantTime(deal.getEnd());
+                            LocalTime dealStart = responseMapper.parseRestaurantDtoTime(deal.getStart());
+                            LocalTime dealEnd = responseMapper.parseRestaurantDtoTime(deal.getEnd());
 
                             // Use deal times if provided, otherwise fall back to restaurant hours
                             LocalTime activeStart = (dealStart != null) ? dealStart : restaurantStart;
@@ -140,7 +148,7 @@ public class DealsServiceImpl implements DealsService {
      * @param dealTimes - a list of TimeEvent objects representing the active start and end times for each deal
      * @return  A PeakDealsResponse object containing the start and end time of the peak window with the most active deals
      */
-    private PeakDealsResponse findPeakDealsWindow(List<TimeEvent> events) {
+    public PeakDealsResponse findPeakDealsWindow(List<TimeEvent> events) {
         if (events == null || events.isEmpty()) {
             return responseMapper.mapPeakDealsResponse(null, null);
         }

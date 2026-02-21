@@ -208,7 +208,50 @@ public class DealsServiceImplTest extends BaseTestClass {
     }
 
     @Test
-    void testGetPeakDeals() {
+    void testGetPeakDeals_onStandardSuccessResponse_expect5to9pmPeakResponse() {
+        // Arrange
+        // Use shared mock response already initiated
 
+        Mockito.when(dealsResource.getAllDeals())
+                .thenReturn(Mono.just(mockResponse)
+                        .delayElement(Duration.ofMillis(500))); // Simulate some delay in response
+
+        // Act
+        StepVerifier.create(dealsService.getPeakDeals())
+                // Assert
+                .thenConsumeWhile( peakDealsResponse -> 
+                {
+                    assertNotNull(peakDealsResponse, "Expected non-null peak deals response");
+                    assertEquals("17:00", peakDealsResponse.getPeakTimeStart(), "Expected peak start time to be 5:00 PM");
+                    assertEquals("21:00", peakDealsResponse.getPeakTimeEnd(), "Expected peak end time to be 9:00 PM");
+                    return true;
+                })
+                .verifyComplete();
+
+        Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
+    }
+
+    @Test
+    void testGetPeakDeals_onEmptySuccessResponse_expectNullPeakResponse() {
+        // Arrange
+        // Use shared mock response already initiated
+
+        Mockito.when(dealsResource.getAllDeals())
+                .thenReturn(Mono.just(RestaurauntDealsResponseDto.builder().build())
+                        .delayElement(Duration.ofMillis(500))); // Simulate some delay in response
+
+        // Act
+        StepVerifier.create(dealsService.getPeakDeals())
+                // Assert
+                .thenConsumeWhile( peakDealsResponse -> 
+                {
+                    assertNotNull(peakDealsResponse, "Expected non-null peak deals response");
+                    assertEquals(null, peakDealsResponse.getPeakTimeStart(), "Expected peak start time to be null");
+                    assertEquals(null, peakDealsResponse.getPeakTimeEnd(), "Expected peak end time to be null");
+                    return true;
+                })
+                .verifyComplete();
+
+        Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
     }
 }

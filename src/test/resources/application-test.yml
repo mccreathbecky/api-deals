@@ -1,8 +1,2 @@
 server:
     port: 8080
-
-app:
-  config:
-    resources:
-      deals-downstream-api:
-        base-url: https://eccdn.com.au/misc/challengedata.json

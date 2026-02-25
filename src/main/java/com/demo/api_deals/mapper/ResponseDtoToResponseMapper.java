@@ -30,10 +30,10 @@ public class ResponseDtoToResponseMapper {
             .restaurantOpen(formatRestaurantDtoTimeForUpstream(restaurantDto.getOpen()))
             .restaurantClose(formatRestaurantDtoTimeForUpstream(restaurantDto.getClose()))
             .dealObjectId(dealDto.getObjectId())
-            .discount(Integer.valueOf(dealDto.getDiscount()))
-            .dineIn(Boolean.valueOf(dealDto.getDineIn()))
-            .lightning(Boolean.valueOf(dealDto.getLightning()))
-            .qtyLeft(Integer.valueOf(dealDto.getQtyLeft()))
+            .discount((dealDto.getDiscount() != null && !dealDto.getDiscount().isEmpty()) ? Integer.valueOf(dealDto.getDiscount()) : null)
+            .dineIn((dealDto.getDineIn() != null && !dealDto.getDineIn().isEmpty()) ? Boolean.valueOf(dealDto.getDineIn()) : null)
+            .lightning((dealDto.getLightning() != null && !dealDto.getLightning().isEmpty()) ? Boolean.valueOf(dealDto.getLightning()) : null)
+            .qtyLeft((dealDto.getQtyLeft() != null && !dealDto.getQtyLeft().isEmpty()) ? Integer.valueOf(dealDto.getQtyLeft()) : null)
             .build();
     }
 

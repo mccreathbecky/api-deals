@@ -57,7 +57,10 @@ public class DealsServiceImpl implements DealsService {
                                     LocalTime dealStart = responseMapper.parseRestaurantDtoTime(deal.getStart());
                                     LocalTime dealEnd = responseMapper.parseRestaurantDtoTime(deal.getEnd());
 
-                                    if (isDealValidAtTime(dealStart, dealEnd, timeOfDay, true)) {
+                                    // Check if deal is active, and whether there are any deals left
+                                    if (isDealValidAtTime(dealStart, dealEnd, timeOfDay, true) 
+                                        && (deal.getQtyLeft() != null && Integer.valueOf(deal.getQtyLeft()) > 0)) { 
+
                                         // 3. If the deal is active, create a Deal object combining restaurant and deal information
                                         Deal activeDeal = responseMapper.mapActiveDealResponse(restaurant, deal);
 

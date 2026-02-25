@@ -158,6 +158,30 @@ public class DealsServiceImplTest extends BaseTestClass {
         Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
     }
 
+    @Test
+    void testGetActiveDeals_onNoQtyLeftResponse_expect0Results() {
+        // Arrange
+        RestaurauntDealsResponseDto mockResponse = (RestaurauntDealsResponseDto) fileLoader.readFileAsObject("responses/restaurant-deals-no-qty-left-response.json", RestaurauntDealsResponseDto.class);
+        LocalTime timeOfDay = LocalTime.of(15, 0); // 3pm
+
+        Mockito.when(dealsResource.getAllDeals())
+                .thenReturn(Mono.just(mockResponse)
+                        .delayElement(Duration.ofMillis(500))); // Simulate some delay in response
+
+        // Act
+        StepVerifier.create(dealsService.getActiveDeals(timeOfDay))
+                // Assert
+                .thenConsumeWhile( activeDealsResponse -> 
+                        {
+                        assertNotNull(activeDealsResponse.getDeals());
+                        assertEquals(0, activeDealsResponse.getDeals().size(), "Expected 0 active deals");
+                        return true; // Continue consuming if all assertions pass
+                        })
+                .verifyComplete();
+
+        Mockito.verify(dealsResource, Mockito.times(1)).getAllDeals();
+    }
+
 
     @Test
     void testGetActiveDeals_onNullPointerException_expectDealsErrorThrown() {
